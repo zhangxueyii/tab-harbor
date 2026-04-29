@@ -63,12 +63,24 @@
     const tabs = group?.tabs || [];
     const preferredTab = tabs.find(tab => tab?.favIconUrl) || tabs[0] || {};
     const { hostname, sources } = getIconSources(preferredTab, size);
+    const customIconUrl = typeof group?.iconUrl === 'string' ? group.iconUrl.trim() : '';
+    const preferTextIcon = group?.iconMode === 'label' || group?.preferTextIcon === true;
+    const fallbackLabel = getFallbackLabel(group?.iconLabel || label, hostname);
+
+    if (preferTextIcon) {
+      return {
+        hostname,
+        src: '',
+        fallbackSrc: '',
+        fallbackLabel,
+      };
+    }
 
     return {
       hostname,
-      src: sources[0] || '',
-      fallbackSrc: sources[1] || '',
-      fallbackLabel: getFallbackLabel(label, hostname),
+      src: customIconUrl || sources[0] || '',
+      fallbackSrc: customIconUrl ? '' : (sources[1] || ''),
+      fallbackLabel,
     };
   }
 

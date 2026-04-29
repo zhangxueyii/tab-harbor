@@ -96,6 +96,33 @@ Tab Harbor 会把标签页整理成更像工作区的结构：**按域名分组�
 5. 选择 [`extension/`](extension/) 文件夹
 6. 打开一个新标签页
 
+## 自定义分组规则
+
+如果你想把相关站点分成更清晰的独立分组，可以新建 `extension/config.local.js`，把自己的规则放进去。仓库里已经附了一个可直接参考的示例文件：[`extension/config.local.example.js`](extension/config.local.example.js)。
+
+你这个 DeepSeek 的场景可以直接这样配：
+
+```js
+globalThis.LOCAL_CUSTOM_GROUPS = [
+  {
+    hostname: 'platform.deepseek.com',
+    groupKey: 'deepseek-platform',
+    groupLabel: 'DeepSeek Platform',
+    iconMode: 'label',
+    iconLabel: 'DP',
+  },
+  {
+    hostname: 'api-docs.deepseek.com',
+    groupKey: 'deepseek-api-docs',
+    groupLabel: 'DeepSeek API Docs',
+    iconMode: 'label',
+    iconLabel: 'API',
+  },
+];
+```
+
+`groupLabel` 会改掉分组显示名称，`iconMode: 'label'` 会把 favicon 换成文字徽标，这样顶部图标栏里就不会再出现两个看起来几乎一样的 DeepSeek 图标。
+
 ## 🔒 完全本地
 
 Tab Harbor 完全运行在扩展内部。打开中的标签页直接来自 Chrome，保存页、Todos、Quick links、主题偏好和布局状态都留在你自己的机器上，通过 `chrome.storage.local` 保存。

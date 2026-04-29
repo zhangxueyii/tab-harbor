@@ -248,6 +248,10 @@ test('getGroupDisplayLabel returns group name for session kind', () => {
   assert.equal(getGroupDisplayLabel({ kind: 'session', label: 'Work Tabs' }), 'Work Tabs');
 });
 
+test('getGroupDisplayLabel returns custom label for custom kind', () => {
+  assert.equal(getGroupDisplayLabel({ kind: 'custom', label: 'DeepSeek API Docs', domain: 'deepseek-api-docs' }), 'DeepSeek API Docs');
+});
+
 test('getGroupDisplayLabel falls back to friendlyDomain for domain kind', () => {
   assert.equal(getGroupDisplayLabel({ kind: 'domain', domain: 'www.google.com' }), 'google com');
   assert.equal(getGroupDisplayLabel({ kind: 'custom', domain: 'github.com' }), 'github com');
@@ -312,6 +316,73 @@ test('buildPopupTabGroups groups domain tabs', () => {
   const googleGroup = groups.find(g => g.domain === 'google.com');
   assert.ok(googleGroup, 'google.com group should exist');
   assert.equal(googleGroup.tabs.length, 1);
+});
+
+test('buildPopupTabGroups preserves custom icon metadata from rules', () => {
+  globalThis.LOCAL_CUSTOM_GROUPS = [
+    {
+      hostname: 'platform.deepseek.com',
+      groupKey: 'deepseek-platform',
+      groupLabel: 'DeepSeek Platform',
+      iconMode: 'label',
+      iconLabel: 'DP',
+    },
+  ];
+  globalThis.LOCAL_LANDING_PAGE_PATTERNS = [];
+  globalThis.TabOutSessionGroups = { normalizeSessionGroups: () => ({ groups: [], assignments: {} }) };
+  globalThis.TabOutGroupOrder = { applyGroupOrder: (list) => list, normalizeGroupOrderState: () => ({ sessionOrder: [], pinnedOrder: [], pinEnabled: false }) };
+  globalThis._resetPopupState();
+
+  globalThis.popupState.openTabs = [
+    { id: 1, url: 'https://platform.deepseek.com/usage', title: 'Usage', windowId: 1, active: false, groupId: null },
+  ];
+  globalThis.popupState.tabGroups = [];
+
+  const groups = globalThis.buildPopupTabGroups();
+  const customGroup = groups.find(g => g.domain === 'deepseek-platform');
+  assert.ok(customGroup, 'custom group should exist');
+  assert.equal(customGroup.label, 'DeepSeek Platform');
+  assert.equal(customGroup.iconMode, 'label');
+  assert.equal(customGroup.iconLabel, 'DP');
+});
+
+test('buildPopupTabGroups sorts groups by main domain so related subdomains stay adjacent', () => {
+  globalThis.LOCAL_CUSTOM_GROUPS = [
+    {
+      hostname: 'platform.deepseek.com',
+      groupKey: 'deepseek-platform',
+      groupLabel: 'DeepSeek Platform',
+      iconMode: 'label',
+      iconLabel: 'DP',
+    },
+    {
+      hostname: 'api-docs.deepseek.com',
+      groupKey: 'deepseek-api-docs',
+      groupLabel: 'DeepSeek API Docs',
+      iconMode: 'label',
+      iconLabel: 'API',
+    },
+  ];
+  globalThis.LOCAL_LANDING_PAGE_PATTERNS = [];
+  globalThis.TabOutSessionGroups = { normalizeSessionGroups: () => ({ groups: [], assignments: {} }) };
+  globalThis.TabOutGroupOrder = { applyGroupOrder: (list) => list, normalizeGroupOrderState: () => ({ sessionOrder: [], pinnedOrder: [], pinEnabled: false }) };
+  globalThis._resetPopupState();
+
+  globalThis.popupState.openTabs = [
+    { id: 1, url: 'https://platform.deepseek.com/usage', title: 'Platform', windowId: 1, active: false, groupId: null },
+    { id: 2, url: 'https://github.com/openai/openai-node', title: 'Repo', windowId: 1, active: false, groupId: null },
+    { id: 3, url: 'https://api-docs.deepseek.com/', title: 'Docs', windowId: 1, active: false, groupId: null },
+  ];
+  globalThis.popupState.tabGroups = [];
+
+  const groups = globalThis.buildPopupTabGroups();
+  const deepseekIndices = groups
+    .map((group, index) => ({ domain: group.domain, index }))
+    .filter(group => group.domain === 'deepseek-api-docs' || group.domain === 'deepseek-platform')
+    .map(group => group.index);
+
+  assert.equal(deepseekIndices.length, 2);
+  assert.equal(Math.abs(deepseekIndices[0] - deepseekIndices[1]), 1, 'DeepSeek groups should be adjacent');
 });
 
 test('buildPopupTabGroups places landing pages group at top', () => {

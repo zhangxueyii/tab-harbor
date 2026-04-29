@@ -229,6 +229,84 @@ function matchCustomGroup(url) {
   } catch { return null; }
 }
 
+function getMainDomain(hostname) {
+  const host = String(hostname || '').toLowerCase().replace(/^www\./, '').trim();
+  if (!host || !host.includes('.')) return host;
+
+  const parts = host.split('.').filter(Boolean);
+  if (parts.length <= 2) return host;
+
+  const compoundSuffixes = new Set([
+    'co.uk',
+    'org.uk',
+    'gov.uk',
+    'ac.uk',
+    'co.jp',
+    'com.au',
+    'net.au',
+    'org.au',
+    'co.nz',
+    'com.cn',
+    'com.hk',
+    'com.sg',
+  ]);
+  const lastTwo = parts.slice(-2).join('.');
+  const lastThree = parts.slice(-3).join('.');
+
+  if (compoundSuffixes.has(lastTwo) && parts.length >= 3) {
+    return lastThree;
+  }
+
+  return lastTwo;
+}
+
+function getGroupSortHostname(group) {
+  const primaryUrl = group?.tabs?.find(tab => tab?.url)?.url || '';
+  if (primaryUrl) {
+    try {
+      const parsed = new URL(primaryUrl);
+      if (parsed.protocol === 'file:') return 'local-files';
+      return parsed.hostname || '';
+    } catch {
+      // Fall through to group domain key
+    }
+  }
+
+  const domain = String(group?.domain || '');
+  if (!domain.startsWith('__') && domain.includes('.')) return domain;
+  return '';
+}
+
+function compareAutomaticGroups(a, b, isLandingDomain) {
+  const aIsLanding = a.domain === '__landing-pages__';
+  const bIsLanding = b.domain === '__landing-pages__';
+  if (aIsLanding !== bIsLanding) return aIsLanding ? -1 : 1;
+
+  const aIsPriority = isLandingDomain(a.domain);
+  const bIsPriority = isLandingDomain(b.domain);
+  if (aIsPriority !== bIsPriority) return aIsPriority ? -1 : 1;
+
+  const aHostname = getGroupSortHostname(a);
+  const bHostname = getGroupSortHostname(b);
+  const aMainDomain = getMainDomain(aHostname);
+  const bMainDomain = getMainDomain(bHostname);
+
+  if (aMainDomain !== bMainDomain) {
+    return aMainDomain.localeCompare(bMainDomain);
+  }
+
+  if (aHostname !== bHostname) {
+    return aHostname.localeCompare(bHostname);
+  }
+
+  const aLabel = getGroupDisplayLabel(a);
+  const bLabel = getGroupDisplayLabel(b);
+  const labelCompare = aLabel.localeCompare(bLabel);
+  if (labelCompare !== 0) return labelCompare;
+
+  return String(a.domain).localeCompare(String(b.domain));
+}
+
 function normalizeGroupTabOrderState(input) {
   if (!input || typeof input !== 'object' || Array.isArray(input)) return {};
 
@@ -367,7 +445,18 @@ function buildPopupTabGroups() {
     const customRule = matchCustomGroup(tab.url);
     if (customRule) {
       const key = customRule.groupKey;
-      if (!groupMap[key]) groupMap[key] = { domain: key, label: customRule.groupLabel, tabs: [], kind: 'custom' };
+      if (!groupMap[key]) {
+        groupMap[key] = {
+          domain: key,
+          label: customRule.groupLabel,
+          tabs: [],
+          kind: 'custom',
+          iconLabel: customRule.iconLabel,
+          iconMode: customRule.iconMode,
+          iconUrl: customRule.iconUrl,
+          preferTextIcon: customRule.preferTextIcon,
+        };
+      }
       groupMap[key].tabs.push(tab);
       continue;
     }
@@ -398,15 +487,7 @@ function buildPopupTabGroups() {
   const sessionGroupsList = Object.values(sessionGroupMap).filter(g => g.tabs.length > 0);
   const automaticGroups = Object.values(groupMap);
 
-  const sortedAutomatic = automaticGroups.sort((a, b) => {
-    const aIsLanding = a.domain === '__landing-pages__';
-    const bIsLanding = b.domain === '__landing-pages__';
-    if (aIsLanding !== bIsLanding) return aIsLanding ? -1 : 1;
-    const aIsPriority = isLandingDomain(a.domain);
-    const bIsPriority = isLandingDomain(b.domain);
-    if (aIsPriority !== bIsPriority) return aIsPriority ? -1 : 1;
-    return b.tabs.length - a.tabs.length;
-  });
+  const sortedAutomatic = automaticGroups.sort((a, b) => compareAutomaticGroups(a, b, isLandingDomain));
 
   const applyOrderFn = popupGroupOrder.applyGroupOrder;
   const orderedManual = applyOrderFn ? applyOrderFn(sessionGroupsList, groupOrder) : sessionGroupsList;
@@ -465,6 +546,7 @@ function getGroupDisplayLabel(group) {
   switch (group.kind) {
     case 'landing':   return t('homepagesLabel');
     case 'session':   return group.label;
+    case 'custom':    return group.label || friendlyDomain(group.domain) || group.domain;
     case 'chrome-group': return group.label;
     case 'ungrouped': return t('ungroupedLabel');
     default:          return friendlyDomain(group.domain) || group.domain;

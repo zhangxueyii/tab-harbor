@@ -97,6 +97,33 @@ That also means it is intentionally lightweight. There is no backend, no sync ac
 5. Select the [`extension/`](extension/) folder
 6. Open a new tab
 
+## Custom Group Rules
+
+If you want two related sites to appear as clearer separate groups, create `extension/config.local.js` and add personal rules there. A ready-to-copy example lives in [`extension/config.local.example.js`](extension/config.local.example.js).
+
+For your DeepSeek case, this works well:
+
+```js
+globalThis.LOCAL_CUSTOM_GROUPS = [
+  {
+    hostname: 'platform.deepseek.com',
+    groupKey: 'deepseek-platform',
+    groupLabel: 'DeepSeek Platform',
+    iconMode: 'label',
+    iconLabel: 'DP',
+  },
+  {
+    hostname: 'api-docs.deepseek.com',
+    groupKey: 'deepseek-api-docs',
+    groupLabel: 'DeepSeek API Docs',
+    iconMode: 'label',
+    iconLabel: 'API',
+  },
+];
+```
+
+`groupLabel` changes the visible group name, and `iconMode: 'label'` swaps the favicon for a text badge so similar logos are easier to distinguish in the top icon rail.
+
 ## 🔒 Fully Local
 
 Tab Harbor runs entirely inside the extension. Open tabs come directly from Chrome, and saved reads, todos, quick links, theme preferences, and layout state stay on your machine through `chrome.storage.local`.

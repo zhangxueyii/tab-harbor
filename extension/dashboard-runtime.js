@@ -1720,6 +1720,84 @@ async function renderStaticDashboard() {
     } catch { return null; }
   }
 
+  function getMainDomain(hostname) {
+    const host = String(hostname || '').toLowerCase().replace(/^www\./, '').trim();
+    if (!host || !host.includes('.')) return host;
+
+    const parts = host.split('.').filter(Boolean);
+    if (parts.length <= 2) return host;
+
+    const compoundSuffixes = new Set([
+      'co.uk',
+      'org.uk',
+      'gov.uk',
+      'ac.uk',
+      'co.jp',
+      'com.au',
+      'net.au',
+      'org.au',
+      'co.nz',
+      'com.cn',
+      'com.hk',
+      'com.sg',
+    ]);
+    const lastTwo = parts.slice(-2).join('.');
+    const lastThree = parts.slice(-3).join('.');
+
+    if (compoundSuffixes.has(lastTwo) && parts.length >= 3) {
+      return lastThree;
+    }
+
+    return lastTwo;
+  }
+
+  function getGroupSortHostname(group) {
+    const primaryUrl = group?.tabs?.find(tab => tab?.url)?.url || '';
+    if (primaryUrl) {
+      try {
+        const parsed = new URL(primaryUrl);
+        if (parsed.protocol === 'file:') return 'local-files';
+        return parsed.hostname || '';
+      } catch {
+        // Fall through to group domain key
+      }
+    }
+
+    const domain = String(group?.domain || '');
+    if (!domain.startsWith('__') && domain.includes('.')) return domain;
+    return '';
+  }
+
+  function compareAutomaticGroups(a, b) {
+    const aIsLanding = a.domain === '__landing-pages__';
+    const bIsLanding = b.domain === '__landing-pages__';
+    if (aIsLanding !== bIsLanding) return aIsLanding ? -1 : 1;
+
+    const aIsPriority = isLandingDomain(a.domain);
+    const bIsPriority = isLandingDomain(b.domain);
+    if (aIsPriority !== bIsPriority) return aIsPriority ? -1 : 1;
+
+    const aHostname = getGroupSortHostname(a);
+    const bHostname = getGroupSortHostname(b);
+    const aMainDomain = getMainDomain(aHostname);
+    const bMainDomain = getMainDomain(bHostname);
+
+    if (aMainDomain !== bMainDomain) {
+      return aMainDomain.localeCompare(bMainDomain);
+    }
+
+    if (aHostname !== bHostname) {
+      return aHostname.localeCompare(bHostname);
+    }
+
+    const aLabel = String(a.label || friendlyDomain(a.domain) || a.domain || '');
+    const bLabel = String(b.label || friendlyDomain(b.domain) || b.domain || '');
+    const labelCompare = aLabel.localeCompare(bLabel);
+    if (labelCompare !== 0) return labelCompare;
+
+    return String(a.domain).localeCompare(String(b.domain));
+  }
+
   for (const tab of realTabs) {
     try {
       const assignedGroupId = sessionGroupsState.assignments[String(tab.id)];
@@ -1740,7 +1818,17 @@ async function renderStaticDashboard() {
       const customRule = matchCustomGroup(tab.url);
       if (customRule) {
         const key = customRule.groupKey;
-        if (!groupMap[key]) groupMap[key] = { domain: key, label: customRule.groupLabel, tabs: [] };
+        if (!groupMap[key]) {
+          groupMap[key] = {
+            domain: key,
+            label: customRule.groupLabel,
+            tabs: [],
+            iconLabel: customRule.iconLabel,
+            iconMode: customRule.iconMode,
+            iconUrl: customRule.iconUrl,
+            preferTextIcon: customRule.preferTextIcon,
+          };
+        }
         groupMap[key].tabs.push(tab);
         continue;
       }
@@ -1776,17 +1864,7 @@ async function renderStaticDashboard() {
     .filter(group => group.tabs.length > 0)
     .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
 
-  const automaticGroups = Object.values(groupMap).sort((a, b) => {
-    const aIsLanding = a.domain === '__landing-pages__';
-    const bIsLanding = b.domain === '__landing-pages__';
-    if (aIsLanding !== bIsLanding) return aIsLanding ? -1 : 1;
-
-    const aIsPriority = isLandingDomain(a.domain);
-    const bIsPriority = isLandingDomain(b.domain);
-    if (aIsPriority !== bIsPriority) return aIsPriority ? -1 : 1;
-
-    return b.tabs.length - a.tabs.length;
-  });
+  const automaticGroups = Object.values(groupMap).sort(compareAutomaticGroups);
   domainGroups = applyGroupOrder([...manualGroups, ...automaticGroups], groupOrderState);
   await loadGroupTabOrder(domainGroups);
 

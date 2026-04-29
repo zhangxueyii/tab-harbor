@@ -34,6 +34,18 @@ test('getGroupIcon falls back to google favicon when tab has no real favicon', (
   assert.equal(iconData.fallbackLabel, 'C');
 });
 
+test('getGroupIcon can force a text badge for visually similar favicons', () => {
+  const iconData = getGroupIcon({
+    iconMode: 'label',
+    iconLabel: 'API',
+    tabs: [{ url: 'https://api-docs.deepseek.com/' }],
+  }, 'DeepSeek API Docs', 32);
+
+  assert.equal(iconData.src, '');
+  assert.equal(iconData.fallbackSrc, '');
+  assert.equal(iconData.fallbackLabel, 'A');
+});
+
 test('getFallbackLabel derives stable initials from labels and hosts', () => {
   assert.equal(getFallbackLabel('GitHub Issues', 'github.com'), 'GI');
   assert.equal(getFallbackLabel('', 'www.wikipedia.org'), 'WI');
