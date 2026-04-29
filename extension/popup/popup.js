@@ -31,6 +31,7 @@ globalThis.stripTitleNoise = stripTitleNoise;
 globalThis.getTabLabel = getTabLabel;
 globalThis.isLandingPage = isLandingPage;
 globalThis.matchCustomGroup = matchCustomGroup;
+globalThis.buildSubdomainSectionsForGroup = buildSubdomainSectionsForGroup;
 globalThis.renderShortcutCard = renderShortcutCard;
 globalThis.renderTabGroup = renderTabGroup;
 globalThis.renderGroupNav = renderGroupNav;
@@ -277,6 +278,51 @@ function getGroupSortHostname(group) {
   return '';
 }
 
+function getTabHostname(tab) {
+  const url = String(tab?.url || '');
+  if (!url) return '';
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol === 'file:') return 'local-files';
+    return parsed.hostname || '';
+  } catch {
+    return '';
+  }
+}
+
+function getAutomaticGroupKeyFromHostname(hostname) {
+  const normalized = String(hostname || '').trim().toLowerCase();
+  if (!normalized) return '';
+  if (normalized === 'local-files') return normalized;
+  return getMainDomain(normalized) || normalized;
+}
+
+function buildSubdomainSectionsForGroup(group) {
+  if (!group || group.kind !== 'domain') return [];
+
+  const tabs = getOrderedUniqueTabsForGroup(group);
+  if (!tabs.length) return [];
+
+  const buckets = new Map();
+  for (const tab of tabs) {
+    const hostname = getTabHostname(tab) || String(group.domain || '');
+    if (!buckets.has(hostname)) buckets.set(hostname, []);
+    buckets.get(hostname).push(tab);
+  }
+
+  return [...buckets.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([hostname, sectionTabs]) => ({
+      hostname,
+      label: hostname.replace(/^www\./, ''),
+      tabs: sectionTabs.slice().sort((a, b) => {
+        const accessDiff = (Number(b?.lastAccessed) || 0) - (Number(a?.lastAccessed) || 0);
+        if (accessDiff !== 0) return accessDiff;
+        return String(a?.url || '').localeCompare(String(b?.url || ''));
+      }),
+    }));
+}
+
 function compareAutomaticGroups(a, b, isLandingDomain) {
   const aIsLanding = a.domain === '__landing-pages__';
   const bIsLanding = b.domain === '__landing-pages__';
@@ -392,6 +438,7 @@ async function loadPopupState() {
     url: tab.url || '',
     title: tab.title || '',
     favIconUrl: tab.favIconUrl || '',
+    lastAccessed: Number(tab.lastAccessed) || 0,
     windowId: tab.windowId,
     active: Boolean(tab.active),
     groupId: tab.groupId,
@@ -429,6 +476,12 @@ function buildPopupTabGroups() {
 
   const groupMap = {};
   const landingTabs = [];
+  const chromeGroupMap = {};
+
+  // Index Chrome native tab groups for fallback grouping
+  const chromeGroupById = Object.fromEntries(
+    (popupState.tabGroups || []).map(cg => [cg.id, cg])
+  );
 
   for (const tab of openTabs) {
     const assignedGroupId = sessionGroups.assignments[String(tab.id)];
@@ -465,12 +518,33 @@ function buildPopupTabGroups() {
     try {
       hostname = tab.url.startsWith('file://') ? 'local-files' : new URL(tab.url).hostname;
     } catch {
-      continue;
+      hostname = '';
     }
-    if (!hostname) continue;
 
-    if (!groupMap[hostname]) groupMap[hostname] = { domain: hostname, label: hostname, tabs: [], kind: 'domain' };
-    groupMap[hostname].tabs.push(tab);
+    if (hostname) {
+      const groupKey = getAutomaticGroupKeyFromHostname(hostname);
+      if (groupKey) {
+        if (!groupMap[groupKey]) groupMap[groupKey] = { domain: groupKey, label: groupKey, tabs: [], kind: 'domain' };
+        groupMap[groupKey].tabs.push(tab);
+        continue;
+      }
+    }
+
+    // Fallback: tab with unparseable/non-web URL — put into its Chrome native group
+    if (tab.groupId != null && chromeGroupById[tab.groupId]) {
+      const cg = chromeGroupById[tab.groupId];
+      if (!chromeGroupMap[cg.id]) {
+        chromeGroupMap[cg.id] = {
+          domain: `__chrome_group__:${cg.id}`,
+          label: cg.title || '',
+          tabs: [],
+          kind: 'chrome-group',
+          color: cg.color || '',
+          collapsed: cg.collapsed,
+        };
+      }
+      chromeGroupMap[cg.id].tabs.push(tab);
+    }
   }
 
   if (landingTabs.length > 0) {
@@ -485,6 +559,7 @@ function buildPopupTabGroups() {
   }
 
   const sessionGroupsList = Object.values(sessionGroupMap).filter(g => g.tabs.length > 0);
+  const chromeGroupsList = Object.values(chromeGroupMap).filter(g => g.tabs.length > 0);
   const automaticGroups = Object.values(groupMap);
 
   const sortedAutomatic = automaticGroups.sort((a, b) => compareAutomaticGroups(a, b, isLandingDomain));
@@ -492,8 +567,9 @@ function buildPopupTabGroups() {
   const applyOrderFn = popupGroupOrder.applyGroupOrder;
   const orderedManual = applyOrderFn ? applyOrderFn(sessionGroupsList, groupOrder) : sessionGroupsList;
   const orderedAuto = applyOrderFn ? applyOrderFn(sortedAutomatic, groupOrder) : sortedAutomatic;
+  const orderedChrome = applyOrderFn ? applyOrderFn(chromeGroupsList, groupOrder) : chromeGroupsList;
 
-  return [...orderedManual, ...orderedAuto];
+  return [...orderedManual, ...orderedAuto, ...orderedChrome];
 }
 
 function renderPopupShortcuts() {
@@ -568,15 +644,19 @@ function renderGroupNav(group, index) {
 
 function renderTabGroup(group, groupIndex) {
   const label = getGroupDisplayLabel(group);
-  const rows = getOrderedUniqueTabsForGroup(group).map((tab, tabIndex) => {
+  const closeLabel = popupI18n.t ? popupI18n.t('closeTabButton') : 'Close';
+  const sections = buildSubdomainSectionsForGroup(group);
+  const hasSections = sections.length > 1;
+  let rowIndex = 0;
+  const renderRow = tab => {
     const title = getTabLabel(tab);
     const safeUrl = escapeAttr(tab.url || '');
     const safeTitle = escapeAttr(title);
     const iconData = popupIcons.getIconSources ? popupIcons.getIconSources(tab, 16) : { sources: [], hostname: '' };
     const fallbackLabel = popupIcons.getFallbackLabel ? popupIcons.getFallbackLabel(title, iconData.hostname) : '?';
-    const closeLabel = popupI18n.t ? popupI18n.t('closeTabButton') : 'Close';
+    const currentRowIndex = rowIndex++;
     return `
-      <div class="popup-tab-row" style="--g:${groupIndex};--r:${tabIndex}" data-action="open-popup-url" data-url="${safeUrl}" data-tab-id="${tab.id}">
+      <div class="popup-tab-row" style="--g:${groupIndex};--r:${currentRowIndex}" data-action="open-popup-url" data-url="${safeUrl}" data-tab-id="${tab.id}">
         ${iconData.sources?.[0] ? `<img class="popup-tab-favicon" src="${escapeAttr(iconData.sources[0])}" alt="">` : `<span class="popup-tab-favicon-fallback">${escapeAttr(fallbackLabel)}</span>`}
         <span class="popup-tab-title" title="${safeTitle}">${safeTitle}</span>
         <button class="popup-tab-close-btn" type="button" data-action="close-popup-tab" data-tab-id="${tab.id}" aria-label="${escapeAttr(closeLabel)}" title="${escapeAttr(closeLabel)}">
@@ -584,7 +664,15 @@ function renderTabGroup(group, groupIndex) {
         </button>
       </div>
     `;
-  }).join('');
+  };
+  const rows = (hasSections ? sections : [{ tabs: getOrderedUniqueTabsForGroup(group) }])
+    .map((section, sectionIndex) => `
+      <div class="popup-tab-subdomain-section${hasSections && sectionIndex > 0 ? ' has-divider' : ''}">
+        ${hasSections ? `<div class="popup-tab-subdomain-label">${escapeAttr(section.label || '')}</div>` : ''}
+        <div class="popup-tab-subdomain-list">${(section.tabs || []).map(renderRow).join('')}</div>
+      </div>
+    `)
+    .join('');
 
   return `
     <section class="popup-tab-group" data-group-id="${escapeAttr(group.domain)}" style="--s:${groupIndex}">

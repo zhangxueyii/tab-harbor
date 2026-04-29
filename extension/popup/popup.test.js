@@ -60,6 +60,7 @@ const {
   matchCustomGroup,
   getGroupDisplayLabel,
   buildPopupTabGroups,
+  buildSubdomainSectionsForGroup,
   popupState,
   renderShortcutCard,
   renderTabGroup,
@@ -316,6 +317,45 @@ test('buildPopupTabGroups groups domain tabs', () => {
   const googleGroup = groups.find(g => g.domain === 'google.com');
   assert.ok(googleGroup, 'google.com group should exist');
   assert.equal(googleGroup.tabs.length, 1);
+});
+
+test('buildPopupTabGroups merges subdomains under the main domain', () => {
+  globalThis.LOCAL_CUSTOM_GROUPS = [];
+  globalThis.LOCAL_LANDING_PAGE_PATTERNS = [];
+  globalThis.TabOutSessionGroups = { normalizeSessionGroups: () => ({ groups: [], assignments: {} }) };
+  globalThis.TabOutGroupOrder = { applyGroupOrder: list => list, normalizeGroupOrderState: () => ({ sessionOrder: [], pinnedOrder: [], pinEnabled: false }) };
+  globalThis._resetPopupState();
+
+  globalThis.popupState.openTabs = [
+    { id: 1, url: 'https://docs.github.com/en', title: 'Docs', lastAccessed: 10, windowId: 1, active: false, groupId: null },
+    { id: 2, url: 'https://github.com/openai/openai-node', title: 'Repo', lastAccessed: 20, windowId: 1, active: false, groupId: null },
+    { id: 3, url: 'https://api.github.com/', title: 'API', lastAccessed: 30, windowId: 1, active: false, groupId: null },
+  ];
+  globalThis.popupState.tabGroups = [];
+
+  const groups = globalThis.buildPopupTabGroups();
+  const githubGroup = groups.find(g => g.domain === 'github.com');
+  assert.ok(githubGroup, 'github.com group should exist');
+  assert.equal(githubGroup.tabs.length, 3);
+  assert.equal(groups.filter(g => g.domain === 'github.com').length, 1);
+});
+
+test('buildSubdomainSectionsForGroup sorts sections by hostname and tabs by lastAccessed desc', () => {
+  const group = {
+    domain: 'github.com',
+    label: 'github.com',
+    kind: 'domain',
+    tabs: [
+      { id: 1, url: 'https://docs.github.com/en/a', title: 'Older docs', lastAccessed: 10 },
+      { id: 2, url: 'https://docs.github.com/en/b', title: 'Newer docs', lastAccessed: 20 },
+      { id: 3, url: 'https://api.github.com/', title: 'API', lastAccessed: 15 },
+      { id: 4, url: 'https://github.com/openai/openai-node', title: 'Repo', lastAccessed: 25 },
+    ],
+  };
+
+  const sections = buildSubdomainSectionsForGroup(group);
+  assert.deepEqual(sections.map(section => section.hostname), ['api.github.com', 'docs.github.com', 'github.com']);
+  assert.deepEqual(sections[1].tabs.map(tab => tab.id), [2, 1]);
 });
 
 test('buildPopupTabGroups preserves custom icon metadata from rules', () => {
@@ -578,6 +618,23 @@ test('renderTabGroup handles empty tabs array', () => {
   const html = renderTabGroup(group, 0);
   assert.ok(html.includes('popup-tab-group-list'));
   assert.ok(!html.includes('popup-tab-row'));
+});
+
+test('renderTabGroup renders subdomain sections with dividers', () => {
+  const group = {
+    domain: 'github.com',
+    label: 'GitHub',
+    kind: 'domain',
+    tabs: [
+      { id: 1, url: 'https://docs.github.com/en', title: 'Docs', lastAccessed: 10 },
+      { id: 2, url: 'https://api.github.com/', title: 'API', lastAccessed: 20 },
+    ],
+  };
+
+  const html = renderTabGroup(group, 0);
+  assert.ok(html.includes('popup-tab-subdomain-section'));
+  assert.ok(html.includes('popup-tab-subdomain-label'));
+  assert.ok(html.includes('has-divider'));
 });
 
 // ---- renderGroupNav ----

@@ -366,6 +366,51 @@ function getOrderedUniqueTabsForGroup(group) {
   return reorderGroupTabsByStoredUrls(uniqueTabs, group?.domain);
 }
 
+function getTabHostname(tab) {
+  const url = String(tab?.url || '');
+  if (!url) return '';
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol === 'file:') return 'local-files';
+    return parsed.hostname || '';
+  } catch {
+    return '';
+  }
+}
+
+function getAutomaticGroupKeyFromHostname(hostname) {
+  const normalized = String(hostname || '').trim().toLowerCase();
+  if (!normalized) return '';
+  if (normalized === 'local-files') return normalized;
+  return getMainDomain(normalized) || normalized;
+}
+
+function buildSubdomainSectionsForGroup(group) {
+  if (!group || group.isManual || group.kind === 'custom' || group.domain === '__landing-pages__') return [];
+
+  const tabs = getOrderedUniqueTabsForGroup(group);
+  if (!tabs.length) return [];
+
+  const buckets = new Map();
+  for (const tab of tabs) {
+    const hostname = getTabHostname(tab) || String(group.domain || '');
+    if (!buckets.has(hostname)) buckets.set(hostname, []);
+    buckets.get(hostname).push(tab);
+  }
+
+  return [...buckets.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([hostname, sectionTabs]) => ({
+      hostname,
+      label: hostname.replace(/^www\./, ''),
+      tabs: sectionTabs.slice().sort((a, b) => {
+        const accessDiff = (Number(b?.lastAccessed) || 0) - (Number(a?.lastAccessed) || 0);
+        if (accessDiff !== 0) return accessDiff;
+        return String(a?.url || '').localeCompare(String(b?.url || ''));
+      }),
+    }));
+}
+
 function getTabsOrderedForChromeSync(group) {
   const tabs = Array.isArray(group?.tabs) ? group.tabs : [];
   const orderUrls = groupTabOrderState[String(group?.domain)] || [];
@@ -429,6 +474,7 @@ async function fetchOpenTabs() {
       title:    t.title,
       windowId: t.windowId,
       active:   t.active,
+      lastAccessed: Number(t.lastAccessed) || 0,
       favIconUrl: t.favIconUrl || '',
       // Flag Tab Harbor's own pages so we can detect duplicate new tabs
       isTabOut: t.url === newtabUrl || t.url === 'chrome://newtab/',
@@ -1406,10 +1452,12 @@ function renderDomainCard(group) {
   }
 
   const orderedTabs = getOrderedUniqueTabsForGroup(group);
-  const visibleTabs = orderedTabs.slice(0, 8);
-  const extraCount  = orderedTabs.length - visibleTabs.length;
+  const sections = buildSubdomainSectionsForGroup(group);
+  const hasSections = sections.length > 1;
+  const visibleSections = hasSections ? sections : [{ tabs: orderedTabs }];
+  let renderedCount = 0;
 
-  const pageChips = visibleTabs.map(tab => {
+  const renderPageChip = tab => {
     let label = cleanTitle(smartTitle(stripTitleNoise(tab.title || ''), tab.url), group.domain);
     // For localhost tabs, prepend port number so you can tell projects apart
     try {
@@ -1446,7 +1494,22 @@ function renderDomainCard(group) {
         </button>
       </div>
     </div>`;
-  }).join('') + (extraCount > 0 ? buildOverflowChips(orderedTabs.slice(8), urlCounts) : '');
+  };
+
+  const pageChips = visibleSections.map((section, sectionIndex) => {
+    const sectionTabs = Array.isArray(section?.tabs) ? section.tabs : [];
+    const remainingSlots = Math.max(0, 8 - renderedCount);
+    const visibleTabs = remainingSlots > 0 ? sectionTabs.slice(0, remainingSlots) : [];
+    renderedCount += visibleTabs.length;
+    const extraTabs = remainingSlots > 0 ? sectionTabs.slice(remainingSlots) : sectionTabs;
+    return `<div class="mission-subdomain-section${hasSections && sectionIndex > 0 ? ' has-divider' : ''}">
+      ${hasSections ? `<div class="mission-subdomain-label">${runtimeEscapeHtml ? runtimeEscapeHtml(section.label || '') : (section.label || '')}</div>` : ''}
+      <div class="mission-subdomain-list">
+        ${visibleTabs.map(renderPageChip).join('')}
+        ${extraTabs.length ? buildOverflowChips(extraTabs, urlCounts) : ''}
+      </div>
+    </div>`;
+  }).join('');
 
   const closeAllButton = `
       <button class="action-btn close-tabs" type="button" data-action="close-domain-tabs" data-domain-id="${stableId}">
@@ -1691,6 +1754,7 @@ async function renderStaticDashboard() {
         domain: `__session_group__:${group.id}`,
         label: group.name,
         tabs: [],
+        kind: 'session',
         isManual: true,
         manualGroupId: group.id,
         createdAt: group.createdAt,
@@ -1823,6 +1887,7 @@ async function renderStaticDashboard() {
             domain: key,
             label: customRule.groupLabel,
             tabs: [],
+            kind: 'custom',
             iconLabel: customRule.iconLabel,
             iconMode: customRule.iconMode,
             iconUrl: customRule.iconUrl,
@@ -1841,15 +1906,18 @@ async function renderStaticDashboard() {
       }
       if (!hostname) continue;
 
-      if (!groupMap[hostname]) groupMap[hostname] = { domain: hostname, tabs: [] };
-      groupMap[hostname].tabs.push(tab);
+      const groupKey = getAutomaticGroupKeyFromHostname(hostname);
+      if (!groupKey) continue;
+
+      if (!groupMap[groupKey]) groupMap[groupKey] = { domain: groupKey, tabs: [], kind: 'domain' };
+      groupMap[groupKey].tabs.push(tab);
     } catch {
       // Skip malformed URLs
     }
   }
 
   if (landingTabs.length > 0) {
-    groupMap['__landing-pages__'] = { domain: '__landing-pages__', tabs: landingTabs };
+    groupMap['__landing-pages__'] = { domain: '__landing-pages__', tabs: landingTabs, kind: 'landing' };
   }
 
   // Sort: landing pages first, then domains from landing page sites, then by tab count

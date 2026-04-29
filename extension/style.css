@@ -1479,6 +1479,33 @@ body.group-dragging .group-nav-button {
   transition: all 0.3s ease-out;
 }
 
+.mission-subdomain-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.mission-subdomain-section.has-divider {
+  border-top: 1px solid color-mix(in srgb, var(--warm-gray) 72%, transparent);
+  padding-top: 8px;
+  margin-top: 4px;
+}
+
+.mission-subdomain-label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding: 2px 0 6px;
+}
+
+.mission-subdomain-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
 /* Smooth height transition when chips are removed */
 .mission-pages .page-chip {
   transition: opacity 0.2s ease, transform 0.2s ease, margin 0.3s ease-out;
