@@ -341,6 +341,29 @@ const FRIENDLY_DOMAINS = {
   'local-files': 'Local Files',
 };
 
+const MULTI_PART_TLDS = [
+  'co.uk', 'co.jp', 'co.kr', 'co.nz', 'co.za', 'co.in', 'co.id',
+  'com.au', 'com.br', 'com.cn', 'com.mx', 'com.tw', 'com.hk', 'com.sg',
+  'com.ar', 'com.tr', 'com.vn', 'com.co', 'com.ng', 'com.ph',
+  'org.uk', 'org.au', 'net.au', 'net.nz',
+  'ac.uk', 'gov.uk', 'gov.au',
+  'ne.jp', 'or.jp', 'ac.jp',
+];
+
+function getRootDomain(hostname) {
+  if (!hostname || hostname === 'localhost' || hostname === 'local-files') return hostname;
+  if (/^\d{1,3}(\.\d{1,3}){3}$/.test(hostname) || hostname.startsWith('[')) return hostname;
+  const parts = hostname.split('.');
+  if (parts.length <= 2) return hostname;
+  for (const tld of MULTI_PART_TLDS) {
+    if (hostname.endsWith('.' + tld)) {
+      const tldParts = tld.split('.').length;
+      return parts.slice(-(tldParts + 1)).join('.');
+    }
+  }
+  return parts.slice(-2).join('.');
+}
+
 function friendlyDomain(hostname) {
   if (!hostname) return '';
   if (FRIENDLY_DOMAINS[hostname]) return FRIENDLY_DOMAINS[hostname];

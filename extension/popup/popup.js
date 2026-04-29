@@ -69,6 +69,29 @@ function friendlyDomain(domain) {
     .trim();
 }
 
+const POPUP_MULTI_PART_TLDS = [
+  'co.uk', 'co.jp', 'co.kr', 'co.nz', 'co.za', 'co.in', 'co.id',
+  'com.au', 'com.br', 'com.cn', 'com.mx', 'com.tw', 'com.hk', 'com.sg',
+  'com.ar', 'com.tr', 'com.vn', 'com.co', 'com.ng', 'com.ph',
+  'org.uk', 'org.au', 'net.au', 'net.nz',
+  'ac.uk', 'gov.uk', 'gov.au',
+  'ne.jp', 'or.jp', 'ac.jp',
+];
+
+function getRootDomain(hostname) {
+  if (!hostname || hostname === 'localhost' || hostname === 'local-files') return hostname;
+  if (/^\d{1,3}(\.\d{1,3}){3}$/.test(hostname) || hostname.startsWith('[')) return hostname;
+  const parts = hostname.split('.');
+  if (parts.length <= 2) return hostname;
+  for (const tld of POPUP_MULTI_PART_TLDS) {
+    if (hostname.endsWith('.' + tld)) {
+      const tldParts = tld.split('.').length;
+      return parts.slice(-(tldParts + 1)).join('.');
+    }
+  }
+  return parts.slice(-2).join('.');
+}
+
 function stripTitleNoise(title) {
   if (!title) return '';
   title = String(title);
@@ -380,8 +403,9 @@ function buildPopupTabGroups() {
     }
     if (!hostname) continue;
 
-    if (!groupMap[hostname]) groupMap[hostname] = { domain: hostname, label: hostname, tabs: [], kind: 'domain' };
-    groupMap[hostname].tabs.push(tab);
+    const groupKey = getRootDomain(hostname);
+    if (!groupMap[groupKey]) groupMap[groupKey] = { domain: groupKey, label: groupKey, tabs: [], kind: 'domain' };
+    groupMap[groupKey].tabs.push(tab);
   }
 
   if (landingTabs.length > 0) {

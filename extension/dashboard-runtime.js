@@ -1316,8 +1316,22 @@ function checkTabOutDupes() {
    OVERFLOW CHIPS ("+N more" expand button in domain cards)
    ---------------------------------------------------------------- */
 
-function buildOverflowChips(hiddenTabs, urlCounts = {}) {
+function buildOverflowChips(hiddenTabs, urlCounts = {}, tabSubdomainMap = null, lastVisibleSubdomain = null, groupDomain = '') {
+  let prevSub = lastVisibleSubdomain;
   const hiddenChips = hiddenTabs.map(tab => {
+    let separatorHtml = '';
+    if (tabSubdomainMap) {
+      const currentSub = tabSubdomainMap.get(tab.url) || '__root__';
+      if (prevSub !== null && currentSub !== prevSub) {
+        const subLabel = currentSub === '__root__'
+          ? friendlyDomain(groupDomain)
+          : friendlyDomain(currentSub);
+        const safeSubLabel = runtimeEscapeHtml ? runtimeEscapeHtml(subLabel) : subLabel;
+        separatorHtml = `<div class="subdomain-separator" aria-hidden="true"><span class="subdomain-label">${safeSubLabel}</span></div>`;
+      }
+      prevSub = currentSub;
+    }
+
     const label    = cleanTitle(smartTitle(stripTitleNoise(tab.title || ''), tab.url), '');
     const count    = urlCounts[tab.url] || 1;
     const dupeTag  = count > 1 ? ` <span class="chip-dupe-badge">(${count}x)</span>` : '';
@@ -1330,7 +1344,7 @@ function buildOverflowChips(hiddenTabs, urlCounts = {}) {
     const fallbackUrl = iconData.sources[1] || '';
     const fallbackLabel = runtimeGetFallbackLabel(label, iconData.hostname);
     const safeFallbackUrl = runtimeEscapeHtmlAttribute ? runtimeEscapeHtmlAttribute(fallbackUrl) : fallbackUrl.replace(/"/g, '&quot;');
-    return `<div class="page-chip clickable${chipClass}" data-action="focus-tab" data-tab-url="${safeUrl}" aria-label="${safeTitle}">
+    return separatorHtml + `<div class="page-chip clickable${chipClass}" data-action="focus-tab" data-tab-url="${safeUrl}" aria-label="${safeTitle}">
       ${faviconUrl ? `<img class="chip-favicon" src="${faviconUrl}" alt="" data-fallback-src="${safeFallbackUrl}">` : ''}
       <span class="chip-favicon chip-favicon-fallback"${faviconUrl ? ' style="display:none"' : ''}>${fallbackLabel}</span>
       <span class="chip-text">${safeLabel}</span>${dupeTag}
@@ -1406,10 +1420,45 @@ function renderDomainCard(group) {
   }
 
   const orderedTabs = getOrderedUniqueTabsForGroup(group);
-  const visibleTabs = orderedTabs.slice(0, 8);
-  const extraCount  = orderedTabs.length - visibleTabs.length;
 
+  // Subdomain clustering: group tabs by subdomain for visual separation
+  const subdomains = group.subdomains || {};
+  const subdomainKeys = Object.keys(subdomains).filter(k => k !== '__root__');
+  const hasMultipleSubdomains = (subdomainKeys.length > 1) || (subdomainKeys.length === 1 && subdomains['__root__']);
+
+  let clusteredTabs = orderedTabs;
+  const tabSubdomainMap = new Map();
+
+  if (hasMultipleSubdomains) {
+    for (const [sub, subTabs] of Object.entries(subdomains)) {
+      for (const t of subTabs) tabSubdomainMap.set(t.url, sub);
+    }
+    const subOrder = new Map(Object.keys(subdomains).map((k, i) => [k, i]));
+    clusteredTabs = [...orderedTabs].sort((a, b) => {
+      const aSub = tabSubdomainMap.get(a.url) || '__root__';
+      const bSub = tabSubdomainMap.get(b.url) || '__root__';
+      return (subOrder.get(aSub) || 0) - (subOrder.get(bSub) || 0);
+    });
+  }
+
+  const visibleTabs = clusteredTabs.slice(0, 8);
+  const extraCount  = clusteredTabs.length - visibleTabs.length;
+
+  let prevSubdomain = null;
   const pageChips = visibleTabs.map(tab => {
+    let separatorHtml = '';
+    if (hasMultipleSubdomains) {
+      const currentSub = tabSubdomainMap.get(tab.url) || '__root__';
+      if (prevSubdomain !== null && currentSub !== prevSubdomain) {
+        const subLabel = currentSub === '__root__'
+          ? friendlyDomain(group.domain)
+          : friendlyDomain(currentSub);
+        const safeSubLabel = runtimeEscapeHtml ? runtimeEscapeHtml(subLabel) : subLabel;
+        separatorHtml = `<div class="subdomain-separator" aria-hidden="true"><span class="subdomain-label">${safeSubLabel}</span></div>`;
+      }
+      prevSubdomain = currentSub;
+    }
+
     let label = cleanTitle(smartTitle(stripTitleNoise(tab.title || ''), tab.url), group.domain);
     // For localhost tabs, prepend port number so you can tell projects apart
     try {
@@ -1429,7 +1478,7 @@ function renderDomainCard(group) {
     const fallbackUrl = iconData.sources[1] || '';
     const fallbackLabel = runtimeGetFallbackLabel(label, iconData.hostname);
     const safeFallbackUrl = runtimeEscapeHtmlAttribute ? runtimeEscapeHtmlAttribute(fallbackUrl) : fallbackUrl.replace(/"/g, '&quot;');
-    return `<div class="page-chip clickable${chipClass}" data-action="focus-tab" data-tab-url="${safeUrl}" data-chip-sort-id="${safeSortId}" data-chip-group-id="${safeGroupId}" aria-label="${safeTitle}">
+    return separatorHtml + `<div class="page-chip clickable${chipClass}" data-action="focus-tab" data-tab-url="${safeUrl}" data-chip-sort-id="${safeSortId}" data-chip-group-id="${safeGroupId}" aria-label="${safeTitle}">
       <button class="drawer-reorder-handle chip-reorder-handle" type="button" data-chip-drag-handle="tab" aria-label="${runtimeT ? runtimeT('dragReorderTab') : 'Drag to reorder tab'}">
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M8 6h.01M8 12h.01M8 18h.01M16 6h.01M16 12h.01M16 18h.01" /></svg>
       </button>
@@ -1446,7 +1495,7 @@ function renderDomainCard(group) {
         </button>
       </div>
     </div>`;
-  }).join('') + (extraCount > 0 ? buildOverflowChips(orderedTabs.slice(8), urlCounts) : '');
+  }).join('') + (extraCount > 0 ? buildOverflowChips(clusteredTabs.slice(8), urlCounts, hasMultipleSubdomains ? tabSubdomainMap : null, prevSubdomain, group.domain) : '');
 
   const closeAllButton = `
       <button class="action-btn close-tabs" type="button" data-action="close-domain-tabs" data-domain-id="${stableId}">
@@ -1753,8 +1802,17 @@ async function renderStaticDashboard() {
       }
       if (!hostname) continue;
 
-      if (!groupMap[hostname]) groupMap[hostname] = { domain: hostname, tabs: [] };
-      groupMap[hostname].tabs.push(tab);
+      const groupKey = getRootDomain(hostname);
+      if (!groupMap[groupKey]) groupMap[groupKey] = { domain: groupKey, tabs: [], subdomains: {} };
+      groupMap[groupKey].tabs.push(tab);
+
+      const normalizedHostname = hostname.replace(/^www\./, '');
+      const normalizedGroupKey = groupKey.replace(/^www\./, '');
+      const subdomain = (normalizedHostname === normalizedGroupKey) ? '__root__' : hostname;
+      if (!groupMap[groupKey].subdomains[subdomain]) {
+        groupMap[groupKey].subdomains[subdomain] = [];
+      }
+      groupMap[groupKey].subdomains[subdomain].push(tab);
     } catch {
       // Skip malformed URLs
     }
