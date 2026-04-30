@@ -93,15 +93,15 @@ body.theme-tone-dark::before {
 .container {
   position: relative;
   z-index: 2;
-  max-width: 1180px;
+  max-width: none;
   margin: 0 auto;
-  padding: 40px 32px 72px;
+  padding: 40px 5vw 72px;
 }
 
 /* When the saved-for-later sidebar is open, expand the container
    so the main column and right rail have enough room */
 .container:has(.dashboard-columns) {
-  max-width: 1260px;
+  max-width: none;
 }
 
 /* ---- Header ---- */
@@ -127,11 +127,11 @@ body.theme-tone-dark::before {
 
 .header-title-row {
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  align-items: flex-start;
   justify-content: flex-start;
-  gap: 18px;
+  gap: 4px;
   width: 100%;
-  flex-wrap: nowrap;
 }
 
 .header-left h1 {
@@ -1321,8 +1321,8 @@ body.group-dragging .group-nav-button {
 
 /* ---- Mission Cards ---- */
 .missions {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
   gap: 12px;
   margin-bottom: 32px;
 }
@@ -1338,9 +1338,10 @@ body.group-dragging .group-nav-button {
   transition: box-shadow 0.25s ease, transform 0.25s ease, opacity 0.3s ease;
   cursor: pointer;
   position: relative;
-  overflow: visible;
+  overflow: hidden;
   break-inside: avoid;
   margin-bottom: 0;
+  min-width: 0;
   box-shadow: 0 14px 28px color-mix(in srgb, var(--workspace-accent) 6%, transparent);
 }
 
@@ -2519,7 +2520,7 @@ footer { animation: fadeUp 0.5s ease 0.65s both; }
 /* ---- Two-column layout ---- */
 .dashboard-columns {
   display: grid;
-  grid-template-columns: minmax(0, 1.35fr) minmax(320px, 0.95fr);
+  grid-template-columns: 1fr 300px;
   column-gap: 40px;
   row-gap: 24px;
   align-items: flex-start;
@@ -2530,7 +2531,7 @@ footer { animation: fadeUp 0.5s ease 0.65s both; }
   grid-column: 1;
   grid-row: 1 / span 2;
   min-width: 0;
-  width: 100%;
+  overflow: hidden;
 }
 
 .dashboard-columns .page-header {
@@ -2731,6 +2732,9 @@ footer { animation: fadeUp 0.5s ease 0.65s both; }
 
 /* On narrow screens, stack vertically */
 @media (max-width: 960px) {
+  .missions {
+    grid-template-columns: 1fr;
+  }
   .dashboard-columns {
     grid-template-columns: 1fr;
     row-gap: 20px;

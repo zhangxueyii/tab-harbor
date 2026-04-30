@@ -1441,7 +1441,7 @@ function renderDomainCard(group) {
     });
   }
 
-  const visibleTabs = clusteredTabs.slice(0, 8);
+  const visibleTabs = clusteredTabs.slice(0, 30);
   const extraCount  = clusteredTabs.length - visibleTabs.length;
 
   let prevSubdomain = null;
@@ -1495,7 +1495,7 @@ function renderDomainCard(group) {
         </button>
       </div>
     </div>`;
-  }).join('') + (extraCount > 0 ? buildOverflowChips(clusteredTabs.slice(8), urlCounts, hasMultipleSubdomains ? tabSubdomainMap : null, prevSubdomain, group.domain) : '');
+  }).join('') + (extraCount > 0 ? buildOverflowChips(clusteredTabs.slice(30), urlCounts, hasMultipleSubdomains ? tabSubdomainMap : null, prevSubdomain, group.domain) : '');
 
   const closeAllButton = `
       <button class="action-btn close-tabs" type="button" data-action="close-domain-tabs" data-domain-id="${stableId}">
