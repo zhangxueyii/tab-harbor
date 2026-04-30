@@ -1802,7 +1802,7 @@ async function renderStaticDashboard() {
       }
       if (!hostname) continue;
 
-      const groupKey = getRootDomain(hostname);
+      const groupKey = (hostname.endsWith('.sap') || hostname === 'sap' || hostname.endsWith('.sap.corp') || hostname === 'sap.corp') ? hostname : getRootDomain(hostname);
       if (!groupMap[groupKey]) groupMap[groupKey] = { domain: groupKey, tabs: [], subdomains: {} };
       groupMap[groupKey].tabs.push(tab);
 
@@ -1839,11 +1839,15 @@ async function renderStaticDashboard() {
     const bIsLanding = b.domain === '__landing-pages__';
     if (aIsLanding !== bIsLanding) return aIsLanding ? -1 : 1;
 
+    const aIsLocalhost = a.domain === 'localhost';
+    const bIsLocalhost = b.domain === 'localhost';
+    if (aIsLocalhost !== bIsLocalhost) return aIsLocalhost ? -1 : 1;
+
     const aIsPriority = isLandingDomain(a.domain);
     const bIsPriority = isLandingDomain(b.domain);
     if (aIsPriority !== bIsPriority) return aIsPriority ? -1 : 1;
 
-    return b.tabs.length - a.tabs.length;
+    return a.domain.localeCompare(b.domain);
   });
   domainGroups = applyGroupOrder([...manualGroups, ...automaticGroups], groupOrderState);
   await loadGroupTabOrder(domainGroups);

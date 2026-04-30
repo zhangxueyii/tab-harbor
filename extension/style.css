@@ -1321,10 +1321,13 @@ body.group-dragging .group-nav-button {
 
 /* ---- Mission Cards ---- */
 .missions {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
+  columns: 3;
+  column-gap: 12px;
   margin-bottom: 32px;
+}
+
+.missions > .mission-card {
+  margin-bottom: 12px;
 }
 
 .mission-card {
@@ -2733,7 +2736,7 @@ footer { animation: fadeUp 0.5s ease 0.65s both; }
 /* On narrow screens, stack vertically */
 @media (max-width: 960px) {
   .missions {
-    grid-template-columns: 1fr;
+    columns: 1;
   }
   .dashboard-columns {
     grid-template-columns: 1fr;
