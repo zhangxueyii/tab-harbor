@@ -1196,13 +1196,13 @@ async function runDefaultSearch(query) {
   if (chrome.search?.query) {
     await chrome.search.query({
       text,
-      disposition: 'CURRENT_TAB',
+      disposition: 'NEW_TAB',
     });
     return;
   }
 
   const fallbackUrl = `https://www.google.com/search?q=${encodeURIComponent(text)}`;
-  await navigateCurrentTabToUrl(fallbackUrl);
+  await chrome.tabs.create({ url: fallbackUrl });
 }
 
 /**
@@ -1891,7 +1891,7 @@ async function renderStaticDashboard() {
 
   // --- Footer stats ---
   const statTabs = document.getElementById('statTabs');
-  if (statTabs) statTabs.textContent = openTabs.length;
+  if (statTabs) statTabs.textContent = realTabs.length;
 
   // --- Check for duplicate Tab Harbor tabs ---
   checkTabOutDupes();
