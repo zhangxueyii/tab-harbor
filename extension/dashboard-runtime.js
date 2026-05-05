@@ -1585,7 +1585,12 @@ function renderGroupNavArea(groups) {
       <button class="group-pin-toggle ${groupOrderState.pinEnabled ? 'is-active' : ''}" id="headerPinToggle" type="button" data-action="toggle-pin-order" data-tooltip="${pinTooltip}" aria-label="${pinTooltip}" aria-pressed="${groupOrderState.pinEnabled}">
         ${ICONS.pin}
       </button>
-      <button class="extensions-btn" type="button" data-action="open-extensions" data-tooltip="Extensions" aria-label="Manage extensions">
+      <button class="pin-tab-btn" type="button" data-action="pin-tab" data-tooltip="Pin Tab (⌘P)" aria-label="Pin tab">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z"/>
+        </svg>
+      </button>
+      <button class="extensions-btn" type="button" data-action="open-extensions" data-tooltip="Extensions (⌘E)" aria-label="Manage extensions">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
           <path d="M20.5 11H19V7c0-1.1-.9-2-2-2h-4V3.5a2.5 2.5 0 0 0-5 0V5H4c-1.1 0-2 .9-2 2v3.8h1.5c1.4 0 2.5 1.1 2.5 2.5s-1.1 2.5-2.5 2.5H2V19c0 1.1.9 2 2 2h3.8v-1.5c0-1.4 1.1-2.5 2.5-2.5s2.5 1.1 2.5 2.5V21H16c1.1 0 2-.9 2-2v-4h1.5a2.5 2.5 0 0 0 0-5z"/>
         </svg>
@@ -1964,6 +1969,14 @@ document.addEventListener('click', async (e) => {
   if (!actionEl) return;
 
   const action = actionEl.dataset.action;
+
+  if (action === 'pin-tab') {
+    const currentTab = await chrome.tabs.getCurrent();
+    if (currentTab) {
+      await chrome.tabs.update(currentTab.id, { pinned: !currentTab.pinned });
+    }
+    return;
+  }
 
   if (action === 'open-extensions') {
     chrome.tabs.create({ url: 'chrome://extensions' });
@@ -2531,6 +2544,14 @@ document.addEventListener('keydown', (e) => {
   if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key === 'e') {
     e.preventDefault();
     chrome.tabs.create({ url: 'chrome://extensions' });
+    return;
+  }
+
+  if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key === 'p') {
+    e.preventDefault();
+    chrome.tabs.getCurrent().then(tab => {
+      if (tab) chrome.tabs.update(tab.id, { pinned: !tab.pinned });
+    });
     return;
   }
 
