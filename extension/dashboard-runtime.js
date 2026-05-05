@@ -1585,6 +1585,11 @@ function renderGroupNavArea(groups) {
       <button class="group-pin-toggle ${groupOrderState.pinEnabled ? 'is-active' : ''}" id="headerPinToggle" type="button" data-action="toggle-pin-order" data-tooltip="${pinTooltip}" aria-label="${pinTooltip}" aria-pressed="${groupOrderState.pinEnabled}">
         ${ICONS.pin}
       </button>
+      <button class="extensions-btn" type="button" data-action="open-extensions" data-tooltip="Extensions" aria-label="Manage extensions">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path d="M20.5 11H19V7c0-1.1-.9-2-2-2h-4V3.5a2.5 2.5 0 0 0-5 0V5H4c-1.1 0-2 .9-2 2v3.8h1.5c1.4 0 2.5 1.1 2.5 2.5s-1.1 2.5-2.5 2.5H2V19c0 1.1.9 2 2 2h3.8v-1.5c0-1.4 1.1-2.5 2.5-2.5s2.5 1.1 2.5 2.5V21H16c1.1 0 2-.9 2-2v-4h1.5a2.5 2.5 0 0 0 0-5z"/>
+        </svg>
+      </button>
       <div class="theme-menu" id="themeMenuPanel" hidden role="dialog" aria-label="${runtimeT ? runtimeT('deskSettingsPanel') : 'Desk settings panel'}">
         <div class="theme-menu-section">
           <div class="theme-menu-row theme-menu-row-inline-choices">
@@ -1959,6 +1964,11 @@ document.addEventListener('click', async (e) => {
   if (!actionEl) return;
 
   const action = actionEl.dataset.action;
+
+  if (action === 'open-extensions') {
+    chrome.tabs.create({ url: 'chrome://extensions' });
+    return;
+  }
 
   if (action === 'toggle-theme-menu') {
     setThemeMenuOpen(!themeMenuOpen);
@@ -2518,6 +2528,12 @@ document.addEventListener('click', (e) => {
 });
 
 document.addEventListener('keydown', (e) => {
+  if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key === 'e') {
+    e.preventDefault();
+    chrome.tabs.create({ url: 'chrome://extensions' });
+    return;
+  }
+
   if (e.key === 'Escape' && themeMenuOpen) {
     setThemeMenuOpen(false, { restoreFocus: true });
     return;

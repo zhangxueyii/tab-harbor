@@ -2268,6 +2268,61 @@ footer {
   color: var(--muted);
 }
 
+.extensions-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  color: #2563eb;
+  background: none;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: color 0.18s ease, background 0.18s ease;
+}
+
+.extensions-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+.extensions-btn:hover,
+.extensions-btn:focus-visible {
+  color: #1d4ed8;
+  background: #eff6ff;
+}
+
+.extensions-btn::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 8px);
+  transform: translateY(2px);
+  background: var(--tooltip-surface);
+  color: var(--tooltip-text);
+  border: 1px solid var(--tooltip-border);
+  padding: 5px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.2px;
+  white-space: nowrap;
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--ink) 16%, transparent);
+  backdrop-filter: blur(10px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.06s ease, transform 0.06s ease;
+  z-index: 20;
+}
+
+.extensions-btn:hover::after,
+.extensions-btn:focus-visible::after {
+  opacity: 1;
+  transform: translateY(0);
+}
+
 .footer-credit {
   color: var(--muted);
 }
