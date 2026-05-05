@@ -1523,10 +1523,10 @@ body.group-dragging .group-nav-button {
 }
 
 .subdomain-separator .subdomain-label {
-  font-size: 10px;
-  color: var(--muted);
+  font-size: 12px;
+  color: #c2703a;
   letter-spacing: 0.3px;
-  text-transform: uppercase;
+  text-transform: lowercase;
   white-space: nowrap;
 }
 

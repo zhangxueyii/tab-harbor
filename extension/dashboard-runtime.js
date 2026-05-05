@@ -1323,9 +1323,7 @@ function buildOverflowChips(hiddenTabs, urlCounts = {}, tabSubdomainMap = null, 
     if (tabSubdomainMap) {
       const currentSub = tabSubdomainMap.get(tab.url) || '__root__';
       if (prevSub !== null && currentSub !== prevSub) {
-        const subLabel = currentSub === '__root__'
-          ? friendlyDomain(groupDomain)
-          : friendlyDomain(currentSub);
+        const subLabel = currentSub === '__root__' ? groupDomain : currentSub;
         const safeSubLabel = runtimeEscapeHtml ? runtimeEscapeHtml(subLabel) : subLabel;
         separatorHtml = `<div class="subdomain-separator" aria-hidden="true"><span class="subdomain-label">${safeSubLabel}</span></div>`;
       }
@@ -1449,10 +1447,8 @@ function renderDomainCard(group) {
     let separatorHtml = '';
     if (hasMultipleSubdomains) {
       const currentSub = tabSubdomainMap.get(tab.url) || '__root__';
-      if (prevSubdomain !== null && currentSub !== prevSubdomain) {
-        const subLabel = currentSub === '__root__'
-          ? friendlyDomain(group.domain)
-          : friendlyDomain(currentSub);
+      if (currentSub !== prevSubdomain) {
+        const subLabel = currentSub === '__root__' ? group.domain : currentSub;
         const safeSubLabel = runtimeEscapeHtml ? runtimeEscapeHtml(subLabel) : subLabel;
         separatorHtml = `<div class="subdomain-separator" aria-hidden="true"><span class="subdomain-label">${safeSubLabel}</span></div>`;
       }
