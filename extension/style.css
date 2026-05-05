@@ -176,6 +176,51 @@ body.theme-tone-dark::before {
   white-space: nowrap;
 }
 
+.hn-posts {
+  margin-top: 10px;
+  max-width: 520px;
+}
+
+.hn-posts-header {
+  font-size: 11px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+}
+
+.hn-posts-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.hn-post {
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.hn-post-title {
+  color: var(--link);
+  text-decoration: none;
+}
+
+.hn-post-title:hover {
+  text-decoration: underline;
+}
+
+.hn-post-domain {
+  font-size: 11px;
+  color: var(--muted);
+  margin-left: 4px;
+}
+
+.hn-post-meta {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
 .header-search {
   margin-top: 14px;
   width: 100%;

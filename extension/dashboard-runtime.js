@@ -416,6 +416,44 @@ async function fetchHitokoto(timeoutMs = 3000) {
   }
 }
 
+async function fetchHnPosts(count = 3, timeoutMs = 3000) {
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    const response = await fetch('https://hacker-news.firebaseio.com/v0/topstories.json', { signal: controller.signal });
+    clearTimeout(timeoutId);
+    if (!response || !response.ok) return null;
+    const ids = await response.json();
+    if (!ids || ids.length === 0) return null;
+    const shuffled = ids.sort(() => Math.random() - 0.5).slice(0, 30);
+    const selected = shuffled.slice(0, count);
+    const stories = await Promise.all(
+      selected.map(async (id) => {
+        try {
+          const r = await fetch(`https://hacker-news.firebaseio.com/v0/item/${id}.json`);
+          return r.ok ? await r.json() : null;
+        } catch {
+          return null;
+        }
+      })
+    );
+    return stories.filter(s => s && s.title);
+  } catch (err) {
+    return null;
+  }
+}
+
+function getTimeAgo(timestamp) {
+  const seconds = Math.floor(Date.now() / 1000 - timestamp);
+  if (seconds < 60) return `${seconds}s`;
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h`;
+  const days = Math.floor(hours / 24);
+  return `${days}d`;
+}
+
 async function fetchOpenTabs() {
   try {
     const extensionId = chrome.runtime.id;
@@ -1694,6 +1732,29 @@ async function renderStaticDashboard() {
     }
   } else if (hitokotoEl) {
     hitokotoEl.style.display = 'none';
+  }
+
+  // --- Hacker News posts ---
+  const hnPostsEl = document.getElementById('hnPosts');
+  const hnPostsListEl = document.getElementById('hnPostsList');
+  if (hnPostsEl && hnPostsListEl) {
+    try {
+      const stories = await fetchHnPosts(3);
+      if (stories && stories.length > 0) {
+        hnPostsListEl.innerHTML = stories.map(story => {
+          const domain = story.url ? new URL(story.url).hostname.replace('www.', '') : 'news.ycombinator.com';
+          const timeAgo = getTimeAgo(story.time);
+          return `<div class="hn-post">
+            <a class="hn-post-title" href="https://news.ycombinator.com/item?id=${story.id}" target="_blank" rel="noopener">${runtimeEscapeHtml(story.title)}</a>
+            <span class="hn-post-domain">(${runtimeEscapeHtml(domain)})</span>
+            <div class="hn-post-meta">${story.score} points · ${timeAgo} · ${story.descendants || 0} comments</div>
+          </div>`;
+        }).join('');
+        hnPostsEl.style.display = '';
+      }
+    } catch (_e) {
+      hnPostsEl.style.display = 'none';
+    }
   }
 
   renderThemeMenu();
