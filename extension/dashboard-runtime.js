@@ -1619,7 +1619,7 @@ function renderGroupNavArea(groups) {
       <button class="group-pin-toggle ${groupOrderState.pinEnabled ? 'is-active' : ''}" id="headerPinToggle" type="button" data-action="toggle-pin-order" data-tooltip="${pinTooltip}" aria-label="${pinTooltip}" aria-pressed="${groupOrderState.pinEnabled}">
         ${ICONS.pin}
       </button>
-      <button class="pin-tab-btn" type="button" data-action="pin-tab" data-tooltip="Pin Tab (Alt+P)" aria-label="Pin tab">
+      <button class="pin-tab-btn" type="button" data-action="pin-tab" data-tooltip="Pin Tab (Ctrl+Alt+P)" aria-label="Pin tab">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
           <path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z"/>
         </svg>
@@ -2595,9 +2595,9 @@ document.addEventListener('click', (e) => {
 document.addEventListener('keydown', (e) => {
   console.log('[Tab Harbor keydown]', e.key, { meta: e.metaKey, ctrl: e.ctrlKey, shift: e.shiftKey, alt: e.altKey });
 
-  if (e.altKey && !e.metaKey && !e.ctrlKey && !e.shiftKey && e.code === 'KeyP') {
+  if (e.ctrlKey && e.altKey && !e.metaKey && !e.shiftKey && e.code === 'KeyP') {
     e.preventDefault();
-    console.log('[Tab Harbor] Alt+P → closeTabOutDupes then pin');
+    console.log('[Tab Harbor] Ctrl+Alt+P → closeTabOutDupes then pin');
     closeTabOutDupes();
     chrome.tabs.getCurrent().then(tab => {
       if (tab) chrome.tabs.update(tab.id, { pinned: !tab.pinned });
