@@ -2598,6 +2598,8 @@ document.addEventListener('click', (e) => {
 });
 
 document.addEventListener('keydown', (e) => {
+  console.log('[Tab Harbor keydown]', e.key, { meta: e.metaKey, ctrl: e.ctrlKey, shift: e.shiftKey, alt: e.altKey });
+
   if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key === 'e') {
     e.preventDefault();
     chrome.tabs.create({ url: 'chrome://extensions' });
@@ -2606,6 +2608,8 @@ document.addEventListener('keydown', (e) => {
 
   if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key === 'p') {
     e.preventDefault();
+    console.log('[Tab Harbor] Cmd+P → closeTabOutDupes then pin');
+    closeTabOutDupes();
     chrome.tabs.getCurrent().then(tab => {
       if (tab) chrome.tabs.update(tab.id, { pinned: !tab.pinned });
     });
