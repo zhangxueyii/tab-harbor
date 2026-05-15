@@ -6,6 +6,15 @@
   "permissions": ["tabs", "storage", "search", "clipboardRead", "tabGroups"],
   "chrome_url_overrides": { "newtab": "index.html" },
   "background": { "service_worker": "background.js" },
+  "commands": {
+    "open-extensions": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+E",
+        "mac": "Command+E"
+      },
+      "description": "Open Chrome Extensions page"
+    }
+  },
   "action": {
     "default_title": "Tab Harbor",
     "default_popup": "popup/popup.html",

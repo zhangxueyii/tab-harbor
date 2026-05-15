@@ -1624,6 +1624,9 @@ function renderGroupNavArea(groups) {
           <path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z"/>
         </svg>
       </button>
+      <button class="extensions-btn" type="button" data-action="open-extensions" data-tooltip="Extensions (⌘E)" aria-label="Extensions">
+        ${ICONS.extensions}
+      </button>
       
       <div class="theme-menu" id="themeMenuPanel" hidden role="dialog" aria-label="${runtimeT ? runtimeT('deskSettingsPanel') : 'Desk settings panel'}">
         <div class="theme-menu-section">

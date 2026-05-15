@@ -79,6 +79,13 @@ chrome.runtime.onStartup.addListener(() => {
   updateBadge();
 });
 
+// Handle keyboard shortcut to open Chrome Extensions page
+chrome.commands.onCommand.addListener(async (command) => {
+  if (command === 'open-extensions') {
+    await chrome.tabs.create({ url: 'chrome://extensions' });
+  }
+});
+
 // Update badge and notify Tab Harbor pages whenever a tab is opened
 chrome.tabs.onCreated.addListener(() => {
   updateBadge();
